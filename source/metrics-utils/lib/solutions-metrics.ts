@@ -9,6 +9,9 @@ import { PolicyStatement } from "aws-cdk-lib/aws-iam";
 import { EventbridgeToLambda } from "@aws-solutions-constructs/aws-eventbridge-lambda";
 import { Runtime } from "aws-cdk-lib/aws-lambda";
 import { NodejsFunction } from "aws-cdk-lib/aws-lambda-nodejs";
+import { Alarm, Metric, ComparisonOperator, TreatMissingData } from "aws-cdk-lib/aws-cloudwatch";
+import { SnsAction } from "aws-cdk-lib/aws-cloudwatch-actions";
+import { Topic } from "aws-cdk-lib/aws-sns";
 
 import { LambdaToSqsToLambda } from "@aws-solutions-constructs/aws-lambda-sqs-lambda";
 import { MetricDataQuery } from "@aws-sdk/client-cloudwatch";
@@ -68,7 +71,7 @@ export class SolutionsMetrics extends Construct {
     props.metricDataProps?.map(this.addMetricDataQuery.bind(this));
 
     // eslint-disable-next-line no-new
-    new LambdaToSqsToLambda(this, "LambdaToSqsToLambda", {
+    const lambdaToSqsToLambda = new LambdaToSqsToLambda(this, "LambdaToSqsToLambda", {
       existingConsumerLambdaObj: ruleToLambda.lambdaFunction,
       existingProducerLambdaObj: ruleToLambda.lambdaFunction,
       queueProps: {
@@ -80,6 +83,75 @@ export class SolutionsMetrics extends Construct {
       },
       deployDeadLetterQueue: false,
     });
+
+    // Create SNS topic for alarm notifications (ISO 27001 compliance requirement)
+    const alarmTopic = new Topic(this, "SqsAlarmTopic", {
+      topicName: `${Aws.STACK_NAME}-sqs-monitoring-alerts`,
+      displayName: "SQS Queue Monitoring Alerts",
+    });
+
+    // Create CloudWatch alarm for ApproximateAgeOfOldestMessage (ISO 27001 compliance)
+    const ageOfOldestMessageAlarm = new Alarm(this, "SqsAgeOfOldestMessageAlarm", {
+      alarmName: `${Aws.STACK_NAME}-sqs-age-of-oldest-message`,
+      alarmDescription: "Alert when SQS messages are aging (ISO 27001 compliance)",
+      metric: new Metric({
+        namespace: "AWS/SQS",
+        metricName: "ApproximateAgeOfOldestMessage",
+        dimensionsMap: {
+          QueueName: lambdaToSqsToLambda.sqsQueue.queueName,
+        },
+        statistic: "Maximum",
+        period: Duration.minutes(5),
+      }),
+      threshold: 300, // 5 minutes in seconds
+      comparisonOperator: ComparisonOperator.GREATER_THAN_THRESHOLD,
+      evaluationPeriods: 2,
+      treatMissingData: TreatMissingData.NOT_BREACHING,
+    });
+
+    // Create CloudWatch alarm for ApproximateNumberOfMessages (general SQS monitoring)
+    const numberOfMessagesAlarm = new Alarm(this, "SqsNumberOfMessagesAlarm", {
+      alarmName: `${Aws.STACK_NAME}-sqs-number-of-messages`,
+      alarmDescription: "Alert when SQS queue has too many pending messages",
+      metric: new Metric({
+        namespace: "AWS/SQS",
+        metricName: "ApproximateNumberOfMessages",
+        dimensionsMap: {
+          QueueName: lambdaToSqsToLambda.sqsQueue.queueName,
+        },
+        statistic: "Average",
+        period: Duration.minutes(5),
+      }),
+      threshold: 100, // Adjust based on your requirements
+      comparisonOperator: ComparisonOperator.GREATER_THAN_THRESHOLD,
+      evaluationPeriods: 3,
+      treatMissingData: TreatMissingData.NOT_BREACHING,
+    });
+
+    // Create CloudWatch alarm for ApproximateNumberOfMessagesVisible
+    const visibleMessagesAlarm = new Alarm(this, "SqsVisibleMessagesAlarm", {
+      alarmName: `${Aws.STACK_NAME}-sqs-visible-messages`,
+      alarmDescription: "Alert when SQS queue has too many visible messages",
+      metric: new Metric({
+        namespace: "AWS/SQS",
+        metricName: "ApproximateNumberOfMessagesVisible",
+        dimensionsMap: {
+          QueueName: lambdaToSqsToLambda.sqsQueue.queueName,
+        },
+        statistic: "Average",
+        period: Duration.minutes(5),
+      }),
+      threshold: 50, // Adjust based on your requirements
+      comparisonOperator: ComparisonOperator.GREATER_THAN_THRESHOLD,
+      evaluationPeriods: 2,
+      treatMissingData: TreatMissingData.NOT_BREACHING,
+    });
+
+    // Add SNS actions to all alarms for notification (ISO 27001 compliance requirement)
+    const snsAction = new SnsAction(alarmTopic);
+    ageOfOldestMessageAlarm.addAlarmAction(snsAction);
+    numberOfMessagesAlarm.addAlarmAction(snsAction);
+    visibleMessagesAlarm.addAlarmAction(snsAction);
 
     this.existingMetricIdentifiers = new Set<string>();
     this.queryDefinitionNames = new Set<string>();
