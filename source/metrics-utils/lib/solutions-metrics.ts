@@ -153,8 +153,82 @@ export class SolutionsMetrics extends Construct {
     numberOfMessagesAlarm.addAlarmAction(snsAction);
     visibleMessagesAlarm.addAlarmAction(snsAction);
 
+    // Create Lambda error rate monitoring (Vanta ISO 27001 compliance requirement)
+    this.createLambdaErrorRateAlarm(this.metricsLambdaFunction.functionName, alarmTopic, "MetricsLambda");
+
     this.existingMetricIdentifiers = new Set<string>();
     this.queryDefinitionNames = new Set<string>();
+  }
+
+  /**
+   * Creates CloudWatch alarms for Lambda function error rate monitoring
+   * @param functionName The name of the Lambda function to monitor
+   * @param alarmTopic The SNS topic to send notifications to
+   * @param functionIdentifier A unique identifier for the function (for alarm naming)
+   */
+  private createLambdaErrorRateAlarm(functionName: string, alarmTopic: Topic, functionIdentifier: string): void {
+    // Create alarm for Lambda errors (absolute count)
+    const lambdaErrorsAlarm = new Alarm(this, `${functionIdentifier}ErrorsAlarm`, {
+      alarmName: `${Aws.STACK_NAME}-lambda-${functionIdentifier.toLowerCase()}-errors`,
+      alarmDescription: `Alert when Lambda function ${functionName} has errors (ISO 27001 compliance)`,
+      metric: new Metric({
+        namespace: "AWS/Lambda",
+        metricName: "Errors",
+        dimensionsMap: {
+          FunctionName: functionName,
+        },
+        statistic: "Sum",
+        period: Duration.minutes(5),
+      }),
+      threshold: 1, // Alert on any errors
+      comparisonOperator: ComparisonOperator.GREATER_THAN_OR_EQUAL_TO_THRESHOLD,
+      evaluationPeriods: 2,
+      treatMissingData: TreatMissingData.NOT_BREACHING,
+    });
+
+    // Create alarm for Lambda error rate (errors vs invocations)
+    const lambdaErrorRateAlarm = new Alarm(this, `${functionIdentifier}ErrorRateAlarm`, {
+      alarmName: `${Aws.STACK_NAME}-lambda-${functionIdentifier.toLowerCase()}-error-rate`,
+      alarmDescription: `Alert when Lambda function ${functionName} error rate exceeds threshold (ISO 27001 compliance)`,
+      metric: new Metric({
+        namespace: "AWS/Lambda",
+        metricName: "Errors",
+        dimensionsMap: {
+          FunctionName: functionName,
+        },
+        statistic: "Average",
+        period: Duration.minutes(5),
+      }),
+      threshold: 0.1, // 10% error rate
+      comparisonOperator: ComparisonOperator.GREATER_THAN_THRESHOLD,
+      evaluationPeriods: 3,
+      treatMissingData: TreatMissingData.NOT_BREACHING,
+    });
+
+    // Create alarm for Lambda duration (performance monitoring)
+    const lambdaDurationAlarm = new Alarm(this, `${functionIdentifier}DurationAlarm`, {
+      alarmName: `${Aws.STACK_NAME}-lambda-${functionIdentifier.toLowerCase()}-duration`,
+      alarmDescription: `Alert when Lambda function ${functionName} duration is high (performance monitoring)`,
+      metric: new Metric({
+        namespace: "AWS/Lambda",
+        metricName: "Duration",
+        dimensionsMap: {
+          FunctionName: functionName,
+        },
+        statistic: "Average",
+        period: Duration.minutes(5),
+      }),
+      threshold: 30000, // 30 seconds (adjust based on function timeout)
+      comparisonOperator: ComparisonOperator.GREATER_THAN_THRESHOLD,
+      evaluationPeriods: 3,
+      treatMissingData: TreatMissingData.NOT_BREACHING,
+    });
+
+    // Add SNS actions to all Lambda alarms
+    const snsAction = new SnsAction(alarmTopic);
+    lambdaErrorsAlarm.addAlarmAction(snsAction);
+    lambdaErrorRateAlarm.addAlarmAction(snsAction);
+    lambdaDurationAlarm.addAlarmAction(snsAction);
   }
 
   extractQueryFields(queryString: QueryString): string[] {
@@ -244,6 +318,21 @@ export class SolutionsMetrics extends Construct {
   addECSAverageMemoryUtilization: typeof addECSAverageMemoryUtilization;
   addDynamoDBConsumedWriteCapacityUnits: typeof addDynamoDBConsumedWriteCapacityUnits;
   addDynamoDBConsumedReadCapacityUnits: typeof addDynamoDBConsumedReadCapacityUnits;
+
+  /**
+   * Public method to add Lambda error rate monitoring for external Lambda functions
+   * @param functionName The name of the Lambda function to monitor
+   * @param functionIdentifier A unique identifier for the function (for alarm naming)
+   */
+  public addLambdaErrorRateMonitoring(functionName: string, functionIdentifier: string): void {
+    // Create SNS topic for alarms if it doesn't exist
+    const alarmTopic = new Topic(this, `${functionIdentifier}AlarmTopic`, {
+      topicName: `${Aws.STACK_NAME}-${functionIdentifier.toLowerCase()}-lambda-alerts`,
+      displayName: `Lambda Error Rate Alerts for ${functionIdentifier}`,
+    });
+
+    this.createLambdaErrorRateAlarm(functionName, alarmTopic, functionIdentifier);
+  }
 }
 
 Object.assign(SolutionsMetrics.prototype, {

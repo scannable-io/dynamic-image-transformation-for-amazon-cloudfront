@@ -71,6 +71,13 @@ export class CustomResourcesConstruct extends Construct {
   public appRegApplicationName: string;
   public existingDistributionDomainName: string;
 
+  /**
+   * Getter for the custom resource Lambda function name for monitoring purposes
+   */
+  public get customResourceLambdaFunctionName(): string {
+    return this.customResourceLambda.functionName;
+  }
+
   constructor(scope: Construct, id: string, props: CustomResourcesConstructProps) {
     super(scope, id);
 

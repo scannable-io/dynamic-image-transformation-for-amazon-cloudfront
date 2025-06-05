@@ -275,6 +275,7 @@ export class ServerlessImageHandlerStack extends Stack {
       conditions: commonResources.conditions,
       sharpSizeLimit,
       createSourceBucketsResource: commonResources.customResources.createSourceBucketsResource,
+      customResourceLambdaFunctionName: commonResources.customResources.customResourceLambdaFunctionName,
       ...solutionConstructProps,
     });
 

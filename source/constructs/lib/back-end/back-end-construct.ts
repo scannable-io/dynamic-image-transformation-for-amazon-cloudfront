@@ -43,6 +43,7 @@ export interface BackEndProps extends SolutionConstructProps {
   readonly conditions: Conditions;
   readonly sharpSizeLimit: string;
   readonly createSourceBucketsResource: (key?: string) => string[];
+  readonly customResourceLambdaFunctionName: string;
 }
 
 export class BackEnd extends Construct {
@@ -257,6 +258,12 @@ export class BackEnd extends Construct {
       distributionId: conditionalCloudFrontDistributionId,
       metricName: "BytesDownloaded",
     });
+
+    // Add Lambda error rate monitoring for Image Handler function (Vanta ISO 27001 compliance)
+    solutionsMetrics.addLambdaErrorRateMonitoring(imageHandlerLambdaFunction.functionName, "ImageHandler");
+
+    // Add Lambda error rate monitoring for Custom Resource function (Vanta ISO 27001 compliance)
+    solutionsMetrics.addLambdaErrorRateMonitoring(props.customResourceLambdaFunctionName, "CustomResource");
 
     Aspects.of(solutionsMetrics).add(new ConditionAspect(props.sendAnonymousStatistics));
 
