@@ -168,20 +168,22 @@ describe("MetricsHelper", () => {
     const startTime = new Date(Date.UTC(2020, 8, 10, 4));
     const endTime = new Date(2020, 8, 17, 4);
 
-    //Mock axios
-    const axios = require("axios");
-    axios.post = jest.fn().mockResolvedValue({ statusText: "OK", status: 200 });
+    // Mock fetch
+    const mockFetch = jest.fn().mockResolvedValue({ ok: true, status: 200 });
+    global.fetch = mockFetch;
 
     // Act
     const result = await metricsHelper.sendAnonymousMetric(metricData, startTime, endTime);
     // Assert
     expect(result.Message).toEqual("Anonymous data was sent successfully.");
 
-    // Assert payload Data DataStartTime sent with axios is in expected format
-    expect(axios.post).toHaveBeenCalledWith(
+    // Assert payload Data DataStartTime sent with fetch is in expected format
+    expect(mockFetch).toHaveBeenCalledWith(
       expect.anything(),
-      expect.stringContaining(`"DataStartTime":"2020-09-10 04:00:00.000"`),
-      expect.anything()
+      expect.objectContaining({
+        method: "POST",
+        body: expect.stringContaining(`"DataStartTime":"2020-09-10 04:00:00.000"`),
+      })
     );
   });
 });

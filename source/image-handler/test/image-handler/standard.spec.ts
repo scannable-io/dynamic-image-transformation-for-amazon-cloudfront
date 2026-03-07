@@ -1,18 +1,18 @@
 // Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-import Rekognition from "aws-sdk/clients/rekognition";
-import S3 from "aws-sdk/clients/s3";
+import { RekognitionClient } from "@aws-sdk/client-rekognition";
+import { S3Client } from "@aws-sdk/client-s3";
 import sharp from "sharp";
 
 import { ImageHandler } from "../../image-handler";
 import { ImageEdits, ImageRequestInfo, RequestTypes } from "../../lib";
 import fs from "fs";
 
-const s3Client = new S3();
-const rekognitionClient = new Rekognition();
+const s3Client = new S3Client();
+const rekognitionClient = new RekognitionClient();
 const image = fs.readFileSync("./test/image/25x15.png");
-const withMetatdataSpy = jest.spyOn(sharp.prototype, "withMetadata");
+const keepMetadataSpy = jest.spyOn(sharp.prototype, "keepMetadata");
 
 describe("standard", () => {
   it("Should pass if a series of standard edits are provided to the function", async () => {
@@ -62,50 +62,52 @@ describe("instantiateSharpImage", () => {
     jest.clearAllMocks();
   });
 
-  it("Should not include metadata if the rotation is null", async () => {
+  it("Should keep metadata by default", async () => {
     // Arrange
-    const edits = {
-      rotate: null,
-    };
-    const options = { faiOnError: false };
+    const edits = {};
+    const options = { failOnError: false };
     const imageHandler = new ImageHandler(s3Client, rekognitionClient);
 
     // Act
     await imageHandler["instantiateSharpImage"](image, edits, options);
 
     // Assert
-    expect(withMetatdataSpy).not.toHaveBeenCalled();
+    expect(keepMetadataSpy).toHaveBeenCalled();
   });
 
-  it("Should include metadata and not define orientation if the rotation is not null and orientation is not defined", async () => {
+  it("Should strip EXIF when stripExif is true", async () => {
     // Arrange
-    const edits = {
-      rotate: undefined,
-    };
-    const options = { faiOnError: false };
+    const originalImage = fs.readFileSync("./test/image/1x1.jpg");
+    const edits = { stripExif: true };
+    const options = { failOnError: false };
     const imageHandler = new ImageHandler(s3Client, rekognitionClient);
 
     // Act
-    await imageHandler["instantiateSharpImage"](image, edits, options);
+    const result = await imageHandler["instantiateSharpImage"](originalImage, edits, options);
+    const outputBuffer = await result.toBuffer();
+    const metadata = await sharp(outputBuffer).metadata();
 
-    // Assert
-    expect(withMetatdataSpy).toHaveBeenCalled();
-    expect(withMetatdataSpy).not.toHaveBeenCalledWith(expect.objectContaining({ orientation: expect.anything }));
+    // Assert - stripExif should be removed from edits after processing
+    expect(edits.stripExif).toBeUndefined();
+    // ICC should be preserved
+    expect(metadata).toHaveProperty("icc");
   });
 
-  it("Should include orientation metadata if the rotation is defined in the metadata", async () => {
+  it("Should strip ICC when stripIcc is true", async () => {
     // Arrange
-    const edits = {
-      rotate: undefined,
-    };
-    const options = { faiOnError: false };
-    const modifiedImage = await sharp(image).withMetadata({ orientation: 1 }).toBuffer();
+    const originalImage = fs.readFileSync("./test/image/1x1.jpg");
+    const edits = { stripIcc: true };
+    const options = { failOnError: false };
     const imageHandler = new ImageHandler(s3Client, rekognitionClient);
 
     // Act
-    await imageHandler["instantiateSharpImage"](modifiedImage, edits, options);
+    const result = await imageHandler["instantiateSharpImage"](originalImage, edits, options);
+    const outputBuffer = await result.toBuffer();
+    const metadata = await sharp(outputBuffer).metadata();
 
-    // Assert
-    expect(withMetatdataSpy).toHaveBeenCalledWith({ orientation: 1 });
+    // Assert - stripIcc should be removed from edits after processing
+    expect(edits.stripIcc).toBeUndefined();
+    // EXIF should be preserved
+    expect(metadata).toHaveProperty("exif");
   });
 });

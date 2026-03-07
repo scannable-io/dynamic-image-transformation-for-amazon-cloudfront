@@ -8,7 +8,6 @@ import { Construct } from "constructs";
 import { addCfnCondition } from "../../utils/utils";
 import { SolutionConstructProps } from "../types";
 import { CustomResourcesConstruct } from "./custom-resources/custom-resource-construct";
-import * as appreg from "@aws-cdk/aws-servicecatalogappregistry-alpha";
 
 export interface CommonResourcesProps extends SolutionConstructProps {
   readonly solutionId: string;
@@ -27,14 +26,6 @@ export interface Conditions {
   readonly disableS3ObjectLambdaCondition: CfnCondition;
   readonly isLogRetentionPeriodInfinite: CfnCondition;
   readonly useExistingCloudFrontDistributionCondition: CfnCondition;
-}
-
-export interface AppRegistryApplicationProps {
-  readonly description: string;
-  readonly solutionId: string;
-  readonly applicationName: string;
-  readonly solutionName: string;
-  readonly solutionVersion: string;
 }
 
 /**
@@ -110,32 +101,4 @@ export class CommonResources extends Construct {
 
     this.logsBucket = this.customResources.createLogBucket();
   }
-
-  public appRegistryApplication(props: AppRegistryApplicationProps) {
-    const stack = Stack.of(this);
-    const applicationType = "AWS-Solutions";
-
-    const application = new appreg.Application(stack, "AppRegistry", {
-      applicationName: props.applicationName,
-      description: `Service Catalog application to track and manage all your resources for the solution ${props.solutionName}`,
-    });
-    application.associateApplicationWithStack(stack);
-
-    Tags.of(application).add("Solutions:SolutionID", props.solutionId);
-    Tags.of(application).add("Solutions:SolutionName", props.solutionName);
-    Tags.of(application).add("Solutions:SolutionVersion", props.solutionVersion);
-    Tags.of(application).add("Solutions:ApplicationType", applicationType);
-
-    const attributeGroup = new appreg.AttributeGroup(stack, "DefaultApplicationAttributeGroup", {
-      attributeGroupName: `A30-AppRegistry-${Aws.STACK_NAME}`,
-      description: "Attribute group for solution information",
-      attributes: {
-        applicationType,
-        version: props.solutionVersion,
-        solutionID: props.solutionId,
-        solutionName: props.solutionName,
-      },
-    });
-    attributeGroup.associateWith(application);
-  }
-}
+}  

@@ -343,7 +343,9 @@ export class ThumborMapper {
         break;
       }
       case "rotate": {
-        currentEdits.rotate = Number(filterValue);
+        // When filterValue is empty, set rotate to undefined to trigger autoOrient()
+        // This aligns with Sharp's behavior where rotate() without parameters calls autoOrient()
+        currentEdits.rotate = filterValue === "" ? undefined : Number(filterValue);
         break;
       }
       case "sharpen": {
@@ -357,8 +359,10 @@ export class ThumborMapper {
         break;
       }
       case "strip_exif":
+        currentEdits.stripExif = true;
+        break;
       case "strip_icc": {
-        currentEdits.rotate = null;
+        currentEdits.stripIcc = true;
         break;
       }
       case "upscale": {

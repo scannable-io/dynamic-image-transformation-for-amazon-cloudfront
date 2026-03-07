@@ -1,7 +1,7 @@
 // Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-import { mockContext, mockAxios } from "./mock";
+import { mockContext, mockFetch } from "./mock";
 import { CustomResourceActions, CustomResourceRequestTypes, CustomResourceRequest } from "../lib";
 import { handler } from "../index";
 
@@ -22,7 +22,7 @@ describe("CREATE_UUID", () => {
   };
 
   it("Should create an UUID", async () => {
-    mockAxios.put.mockResolvedValue({ status: 200 });
+    mockFetch.mockResolvedValue({ ok: true, status: 200 });
 
     const response = await handler(event, mockContext);
 
