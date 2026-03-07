@@ -10,7 +10,6 @@ import {
   PutConfigRequestProperties,
   SendMetricsRequestProperties,
   CheckFirstBucketRegionRequestProperties,
-  GetAppRegApplicationNameRequestProperties,
   ValidateExistingDistributionRequestProperties,
 } from "./interfaces";
 
@@ -23,7 +22,6 @@ export type ResourcePropertyTypes =
   | CheckFallbackImageRequestProperties
   | CreateLoggingBucketRequestProperties
   | CheckFirstBucketRegionRequestProperties
-  | GetAppRegApplicationNameRequestProperties
   | ValidateExistingDistributionRequestProperties;
 
 export class CustomResourceError extends Error {

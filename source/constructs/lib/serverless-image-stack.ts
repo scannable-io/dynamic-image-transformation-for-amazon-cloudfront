@@ -47,9 +47,9 @@ export class ServerlessImageHandlerStack extends Stack {
     const sourceBucketsParameter = new CfnParameter(this, "SourceBucketsParameter", {
       type: "String",
       description:
-        "(Required) List the buckets (comma-separated) within your account that contain original image files. If you plan to use Thumbor or Custom image requests with this solution, the source bucket for those requests will default to the first bucket listed in this field.",
-      allowedPattern: ".+",
-      default: "defaultBucket, bucketNo2, bucketNo3, ...",
+        "(Required) List the buckets (comma-separated) within your account that contain original image files. If you plan to use Thumbor or Custom image requests with this solution, the source bucket for those requests will default to the first bucket listed in this field. e.g. (defaultBucket,bucketNo2,bucketNo3,...)",
+      allowedPattern: "^[a-z0-9][a-z0-9.-]{1,61}[a-z0-9](?:\\s*,\\s*[a-z0-9][a-z0-9.-]{1,61}[a-z0-9])*$",
+      constraintDescription: "Source bucket is required. Please provide at least one valid S3 bucket name that is present in your account.",
     });
 
     const deployDemoUIParameter = new CfnParameter(this, "DeployDemoUIParameter", {
@@ -167,10 +167,21 @@ export class ServerlessImageHandlerStack extends Stack {
     const enableS3ObjectLambdaParameter = new CfnParameter(this, "EnableS3ObjectLambdaParameter", {
       type: "String",
       description:
-        "Enable S3 Object Lambda to improve the maximum response size of image requests beyond 6 MB. If enabled, an S3 Object Lambda Access Point will replace the API Gateway proxying requests to your image handler function. **Important: Modifying this value after initial template deployment will delete the existing CloudFront Distribution and create a new one, providing a new domain name and clearing the cache**",
+        "Deprecated: This option has been deprecated. Amazon S3 Object Lambda will no longer be open to new customers starting on November 7, 2025. If you were not an existing user of S3 Object Lambda before November 7, 2025, select 'No'. For more information, please visit https://docs.aws.amazon.com/AmazonS3/latest/userguide/amazons3-ol-change.html. **Important: Modifying this value after initial template deployment will delete the existing CloudFront Distribution and create a new one, providing a new domain name and clearing the cache**.",
       allowedValues: ["Yes", "No"],
       default: "No",
     });
+
+   
+    console.warn("\n" + "=".repeat(80));
+    console.warn("⚠️  S3 Object Lambda Feature Deprecation Notice");
+    console.warn("=".repeat(80));
+    console.warn("The EnableS3ObjectLambdaParameter has been DEPRECATED.");
+    console.warn("");
+    console.warn("❌ For NEW deployments: Do NOT set EnableS3ObjectLambdaParameter=Yes");
+    console.warn("✅ For EXISTING deployments: You can continue using this feature");
+    console.warn("📋 Default value is 'No' - recommended for all new deployments");
+    console.warn("=".repeat(80) + "\n");
 
     const useExistingCloudFrontDistribution = new CfnParameter(this, "UseExistingCloudFrontDistributionParameter", {
       type: "String",
@@ -316,14 +327,6 @@ export class ServerlessImageHandlerStack extends Stack {
       apiEndpoint: apiEndpointConditionString,
     });
 
-    commonResources.appRegistryApplication({
-      description: `${props.solutionId} - ${props.solutionName}. Version ${props.solutionVersion}`,
-      solutionVersion: props.solutionVersion,
-      solutionId: props.solutionId,
-      solutionName: props.solutionName,
-      applicationName: commonResources.customResources.appRegApplicationName,
-    });
-
     this.templateOptions.metadata = {
       "AWS::CloudFormation::Interface": {
         ParameterGroups: [
@@ -385,7 +388,7 @@ export class ServerlessImageHandlerStack extends Stack {
         ],
         ParameterLabels: {
           [enableS3ObjectLambdaParameter.logicalId]: {
-            default: "Enable S3 Object Lambda",
+            default: "Enable S3 Object Lambda (DEPRECATED)",
           },
           [corsEnabledParameter.logicalId]: { default: "CORS Enabled" },
           [corsOriginParameter.logicalId]: { default: "CORS Origin" },

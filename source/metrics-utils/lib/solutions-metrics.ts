@@ -7,22 +7,26 @@ import { Construct } from "constructs";
 import { Schedule } from "aws-cdk-lib/aws-events";
 import { PolicyStatement } from "aws-cdk-lib/aws-iam";
 import { EventbridgeToLambda } from "@aws-solutions-constructs/aws-eventbridge-lambda";
-import { Runtime } from "aws-cdk-lib/aws-lambda";
 import { NodejsFunction } from "aws-cdk-lib/aws-lambda-nodejs";
 
 import { LambdaToSqsToLambda } from "@aws-solutions-constructs/aws-lambda-sqs-lambda";
 import { MetricDataQuery } from "@aws-sdk/client-cloudwatch";
-import { ILogGroup, QueryDefinition, QueryDefinitionProps, QueryString } from "aws-cdk-lib/aws-logs";
+import { QueryDefinition, QueryDefinitionProps, QueryString } from "aws-cdk-lib/aws-logs";
 import { ExecutionDay, MetricDataProps, SolutionsMetricProps } from "../lambda/helpers/types";
 import {
   addLambdaBilledDurationMemorySize,
   addCloudFrontMetric,
   addLambdaInvocationCount,
-  addECSAverageCPUUtilization,
-  addECSAverageMemoryUtilization,
-  addDynamoDBConsumedWriteCapacityUnits,
-  addDynamoDBConsumedReadCapacityUnits,
+  addECSImageSizeMetrics,
+  addECSImageFormatMetrics,
+  addECSTransformationTimeBuckets,
+  addECSImageSizeBuckets,
+  addECSImageRequestCount,
+  addECSOriginTypeMetrics,
+  addECSTransformationUsageMetrics,
+  addTransformationSourceMetrics,
 } from "./query-builders";
+import { DITNodejsFunction } from "../../constructs/lib/v8/constructs/common"
 
 export class SolutionsMetrics extends Construct {
   private metricDataQueries: MetricDataQuery[];
@@ -34,10 +38,9 @@ export class SolutionsMetrics extends Construct {
   constructor(scope: Construct, id: string, props: SolutionsMetricProps) {
     super(scope, id);
     const { VERSION } = process.env;
-    this.metricsLambdaFunction = new NodejsFunction(this, "MetricsLambda", {
+    this.metricsLambdaFunction = new DITNodejsFunction(this, "MetricsLambda", {
       description: "Metrics util",
       entry: path.join(__dirname, "../lambda/index.ts"),
-      runtime: Runtime.NODEJS_22_X,
       timeout: Duration.seconds(60),
       memorySize: 128,
       environment: {
@@ -47,7 +50,32 @@ export class SolutionsMetrics extends Construct {
         SOLUTION_VERSION: VERSION ?? scope.node.tryGetContext("solutionVersion"),
         UUID: props.uuid ?? "",
         EXECUTION_DAY: props.executionDay ? props.executionDay : ExecutionDay.MONDAY,
+        AWS_ACCOUNT_ID: Aws.ACCOUNT_ID,
+        AWS_STACK_ID: Aws.STACK_ID,
       },
+    });
+
+    if (props.configTableArn) {
+      this.metricsLambdaFunction.addEnvironment('CONFIG_TABLE_ARN', props.configTableArn);
+      this.metricsLambdaFunction.addToRolePolicy(
+        new PolicyStatement({
+          actions: ['dynamodb:Scan'],
+          resources: [props.configTableArn],
+        })
+      );
+    }
+
+    (this.metricsLambdaFunction.node.defaultChild as CfnResource).addMetadata("cfn_nag", {
+      rules_to_suppress: [
+        {
+          id: "W89",
+          reason: "Not in vpc",
+        },
+        {
+          id: "W92",
+          reason: "No need for ReservedConcurrentExecutions, does not support any application functional logic",
+        },
+      ],
     });
 
     const ruleToLambda = new EventbridgeToLambda(this, "EventbridgeRuleToLambda", {
@@ -118,9 +146,15 @@ export class SolutionsMetrics extends Construct {
       this.existingMetricIdentifiers.add(metricIdentifier);
     });
 
-    queryDefinitionProps.logGroups?.map((logGroup: ILogGroup) =>
-      logGroup.grant(this.metricsLambdaFunction, "logs:StartQuery", "logs:GetQueryResults")
-    );
+    if (queryDefinitionProps.logGroups && queryDefinitionProps.logGroups.length > 0) {
+	      this.metricsLambdaFunction.addToRolePolicy(
+	        new PolicyStatement({
+	          actions: ["logs:StartQuery", "logs:GetQueryResults"],
+	          resources: queryDefinitionProps.logGroups.map((logGroup) => logGroup.logGroupRef.logGroupArn),
+	        })
+	      );
+	    }
+    
     this.metricsLambdaFunction.addToRolePolicy(
       new PolicyStatement({
         actions: ["logs:DescribeQueryDefinitions"],
@@ -168,18 +202,26 @@ export class SolutionsMetrics extends Construct {
   addLambdaInvocationCount: typeof addLambdaInvocationCount;
   addLambdaBilledDurationMemorySize: typeof addLambdaBilledDurationMemorySize;
   addCloudFrontMetric: typeof addCloudFrontMetric;
-  addECSAverageCPUUtilization: typeof addECSAverageCPUUtilization;
-  addECSAverageMemoryUtilization: typeof addECSAverageMemoryUtilization;
-  addDynamoDBConsumedWriteCapacityUnits: typeof addDynamoDBConsumedWriteCapacityUnits;
-  addDynamoDBConsumedReadCapacityUnits: typeof addDynamoDBConsumedReadCapacityUnits;
+  addECSImageSizeMetrics: typeof addECSImageSizeMetrics;
+  addECSImageFormatMetrics: typeof addECSImageFormatMetrics;
+  addECSTransformationTimeBuckets: typeof addECSTransformationTimeBuckets;
+  addECSImageSizeBuckets: typeof addECSImageSizeBuckets;
+  addECSImageRequestCount: typeof addECSImageRequestCount;
+  addECSOriginTypeMetrics: typeof addECSOriginTypeMetrics;
+  addECSTransformationUsageMetrics: typeof addECSTransformationUsageMetrics;
+  addTransformationSourceMetrics: typeof addTransformationSourceMetrics;
 }
 
 Object.assign(SolutionsMetrics.prototype, {
   addLambdaInvocationCount,
   addLambdaBilledDurationMemorySize,
   addCloudFrontMetric,
-  addECSAverageCPUUtilization,
-  addECSAverageMemoryUtilization,
-  addDynamoDBConsumedWriteCapacityUnits,
-  addDynamoDBConsumedReadCapacityUnits,
+  addECSImageSizeMetrics,
+  addECSImageFormatMetrics,
+  addECSTransformationTimeBuckets,
+  addECSImageSizeBuckets,
+  addECSImageRequestCount,
+  addECSOriginTypeMetrics,
+  addECSTransformationUsageMetrics,
+  addTransformationSourceMetrics,
 });

@@ -68,7 +68,6 @@ export class CustomResourcesConstruct extends Construct {
   public readonly uuid: string;
   public regionedBucketName: string;
   public regionedBucketHash: string;
-  public appRegApplicationName: string;
   public existingDistributionDomainName: string;
 
   constructor(scope: Construct, id: string, props: CustomResourcesConstructProps) {
@@ -142,40 +141,6 @@ export class CustomResourcesConstruct extends Construct {
             }),
           ],
         }),
-        AppRegistryPolicy: new PolicyDocument({
-          statements: [
-            new PolicyStatement({
-              effect: Effect.ALLOW,
-              actions: ["cloudformation:DescribeStackResources"],
-              resources: [
-                Stack.of(this).formatArn({
-                  partition: Aws.PARTITION,
-                  service: "cloudformation",
-                  region: Aws.REGION,
-                  account: Aws.ACCOUNT_ID,
-                  resource: "stack",
-                  resourceName: `${Aws.STACK_NAME}/*`,
-                  arnFormat: ArnFormat.SLASH_RESOURCE_NAME,
-                }),
-              ],
-            }),
-            new PolicyStatement({
-              effect: Effect.ALLOW,
-              actions: ["servicecatalog:GetApplication"],
-              resources: [
-                Stack.of(this).formatArn({
-                  partition: Aws.PARTITION,
-                  service: "servicecatalog",
-                  region: Aws.REGION,
-                  account: Aws.ACCOUNT_ID,
-                  resource: "applications",
-                  resourceName: `*`,
-                  arnFormat: ArnFormat.SLASH_RESOURCE_SLASH_RESOURCE_NAME,
-                }),
-              ],
-            }),
-          ],
-        }),
         ExistingDistributionPolicy: new PolicyDocument({
           statements: [
             new PolicyStatement({
@@ -203,13 +168,17 @@ export class CustomResourcesConstruct extends Construct {
         reason:
           "Allow '*' because it is required for making DescribeRegions API call as it doesn't support resource-level permissions and require to choose all resources.",
       },
+      {
+        id: "F10",
+        reason: "Using inline policy",
+      },
     ]);
 
     props.secretsManagerPolicy.attachToRole(this.customResourceRole);
 
     this.customResourceLambda = new NodejsFunction(this, "CustomResourceFunction", {
       description: `${props.solutionName} (${props.solutionVersion}): Custom resource`,
-      runtime: Runtime.NODEJS_20_X,
+      runtime: Runtime.NODEJS_22_X,
       timeout: Duration.minutes(1),
       memorySize: 128,
       role: this.customResourceRole,
@@ -287,16 +256,6 @@ export class CustomResourcesConstruct extends Construct {
       produce: () => regionedBucketValidationResults.getAttString("BucketHash"),
     });
 
-    const getAppRegApplicationNameResults = this.createCustomResource(
-      "CustomResourceGetAppRegApplicationName",
-      this.customResourceLambda,
-      {
-        CustomAction: "getAppRegApplicationName",
-        Region: Aws.REGION,
-        DefaultName: Fn.join("-", ["AppRegistry", Aws.STACK_NAME, Aws.REGION, Aws.ACCOUNT_ID]),
-      }
-    );
-    this.appRegApplicationName = getAppRegApplicationNameResults.getAttString("ApplicationName");
 
     this.createCustomResource(
       "CustomResourceCheckFallbackImage",

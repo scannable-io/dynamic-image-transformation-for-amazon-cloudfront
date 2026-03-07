@@ -430,7 +430,7 @@ describe("filter", () => {
     const edits = thumborMapper.mapFilter(edit, filetype);
 
     // Assert
-    const expectedResult = { rotate: null };
+    const expectedResult = { stripExif: true };
     expect(edits).toEqual(expectedResult);
   });
 
@@ -444,7 +444,7 @@ describe("filter", () => {
     const edits = thumborMapper.mapFilter(edit, filetype);
 
     // Assert
-    const expectedResult = { rotate: null };
+    const expectedResult = { stripIcc: true };
     expect(edits).toEqual(expectedResult);
   });
 

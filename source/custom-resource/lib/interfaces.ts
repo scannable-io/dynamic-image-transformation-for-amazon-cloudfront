@@ -11,6 +11,8 @@ export interface CustomResourceRequestPropertiesBase {
 export interface SendMetricsRequestProperties extends CustomResourceRequestPropertiesBase {
   AnonymousData: "Yes" | "No";
   UUID: string;
+  AccountId: string;
+  StackId: string;
   CorsEnabled: string;
   SourceBuckets: string;
   DeployDemoUi: string;
@@ -39,10 +41,6 @@ export interface CheckFirstBucketRegionRequestProperties extends CheckSourceBuck
   StackId: string;
 }
 
-export interface GetAppRegApplicationNameRequestProperties extends CustomResourceRequestPropertiesBase {
-  StackId: string;
-  DefaultName: string;
-}
 
 export interface ValidateExistingDistributionRequestProperties extends CustomResourceRequestPropertiesBase {
   ExistingDistributionID: string;
@@ -113,5 +111,7 @@ export interface MetricPayload {
   Version: string;
   UUID: string;
   TimeStamp: string;
+  AccountId: string;
+  StackId: string;
   Data: MetricsPayloadData;
 }

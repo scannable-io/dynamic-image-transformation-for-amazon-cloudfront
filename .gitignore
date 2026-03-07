@@ -7,6 +7,10 @@
 **/.zip
 **/tmp
 **/out-tsc
+.scannerwork
+deployment/ecr
+deployment/launch-wizard-assets
+deployment/ecr_image_tags.json
 
 # dependencies
 **/node_modules
@@ -23,8 +27,20 @@
 **/testem.log
 **/.vscode/settings.json
 demo-ui-config.js
+.temp_redpencil
+bom.json
 
 # System Files
 **/.DS_Store
 **/.vscode
 **/.idea
+build
+dist
+
+# amazon q
+.q
+.amazonq
+.kiro
+
+# Cypress artifacts
+source/admin-ui/src/e2e-tests/artifacts/
