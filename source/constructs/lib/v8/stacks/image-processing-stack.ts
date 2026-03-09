@@ -14,6 +14,7 @@ import {
   NestedStackProps,
   RemovalPolicy,
 } from "aws-cdk-lib";
+import * as acm from "aws-cdk-lib/aws-certificatemanager";
 import * as cloudfront from "aws-cdk-lib/aws-cloudfront";
 import * as origins from "aws-cdk-lib/aws-cloudfront-origins";
 import { TableV2 } from "aws-cdk-lib/aws-dynamodb";
@@ -31,8 +32,12 @@ interface ImageProcessingStackProps extends NestedStackProps {
   uuid?: string;
   configTableArn?: string;
   deploymentSize: string;
-  originOverrideHeader?: string
+  originOverrideHeader?: string;
   corsOrigin?: string;
+  /** Custom domain for the CloudFront distribution (e.g. staging-images.scannable.io). Requires certificateArn. */
+  domainName?: string;
+  /** ACM certificate ARN in us-east-1 for the custom domain. Required when domainName is set. */
+  certificateArn?: string;
 }
 
 /**
@@ -230,7 +235,7 @@ export class ImageProcessingStack extends NestedStack {
         },
       });
 
-      distribution = new cloudfront.Distribution(this, "ImageProcessingDistribution", {
+      const distributionProps: cloudfront.DistributionProps = {
         comment: `Image Handler Distribution for Dynamic Image Transformation - ${deploymentMode} mode`,
         priceClass: cloudfront.PriceClass.PRICE_CLASS_ALL,
         defaultBehavior: {
@@ -258,7 +263,14 @@ export class ImageProcessingStack extends NestedStack {
           { httpStatus: 503, ttl: Duration.minutes(10) },
           { httpStatus: 504, ttl: Duration.minutes(10) },
         ],
-      });
+        ...(props.domainName &&
+          props.certificateArn && {
+            domainNames: [props.domainName],
+            certificate: acm.Certificate.fromCertificateArn(this, "CustomDomainCert", props.certificateArn),
+          }),
+      };
+
+      distribution = new cloudfront.Distribution(this, "ImageProcessingDistribution", distributionProps);
 
       const cfnDistribution = distribution.node.defaultChild as cloudfront.CfnDistribution;
 

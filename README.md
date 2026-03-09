@@ -8,6 +8,7 @@
 - [Architecture Diagram](#architecture-diagram)
 - [AWS CDK and Solutions Constructs](#aws-cdk-and-solutions-constructs)
 - [Customizing the Solution](#customizing-the-solution)
+- [Custom Domain (ECS)](#custom-domain-ecs)
   - [Prerequisites for Customization](#prerequisites-for-customization)
     - [1. Clone the repository](#1-clone-the-repository)
     - [2. Unit Test](#2-unit-test)
@@ -26,7 +27,7 @@ For more information and a detailed deployment guide, visit the [Dynamic Image T
 
 # Architecture Diagram
 
-Dynamic Image Transformation for Amazon CloudFront supports two architectures: 
+Dynamic Image Transformation for Amazon CloudFront supports two architectures:
 
 ## ECS Architecture
 
@@ -46,7 +47,8 @@ _The Amazon API Gateway REST API architecture maintains the structure used in v6
 **⚠️ DEPRECATED: This architecture has been deprecated and should not be used for new deployments. Use the ECS Architecture instead.**
 
 ![Architecture Diagram (S3 Object Lambda Architecture)](./object_lambda_architecture.png)
-> **The S3 Object Lambda architecture has been deprecated and will no longer be open to new customers starting on November 7, 2025. If you were not an existing user of S3 Object Lambda before November 7, 2025, select ‘No“ for EnableS3ObjectLambdaParameter. For more information, please visit https://docs.aws.amazon.com/AmazonS3/latest/userguide/amazons3-ol-change.html.**  
+
+> **The S3 Object Lambda architecture has been deprecated and will no longer be open to new customers starting on November 7, 2025. If you were not an existing user of S3 Object Lambda before November 7, 2025, select ‘No“ for EnableS3ObjectLambdaParameter. For more information, please visit https://docs.aws.amazon.com/AmazonS3/latest/userguide/amazons3-ol-change.html.**
 
 The S3 Object Lambda architecture maintains very similar functionality, while also allowing for images larger than 6 MB to be returned. For more information, refer to the [Architecture Overview](https://docs.aws.amazon.com/solutions/latest/serverless-image-handler/architecture-overview.html) in the implementation guide.
 
@@ -74,7 +76,6 @@ cd dynamic-image-transformation-for-amazon-cloudfront
 export MAIN_DIRECTORY=$PWD
 ```
 
-
 ### 2. Unit Test
 
 After making changes, run unit tests to make sure added customization passes the tests:
@@ -85,6 +86,7 @@ chmod +x run-unit-tests.sh && ./run-unit-tests.sh
 ```
 
 ### 3. Build and Deploy
+
 ```bash
 cd $MAIN_DIRECTORY/source/constructs
 npm run clean:install
@@ -100,7 +102,12 @@ overrideWarningsEnabled=false npx cdk deploy v7-Stack\
 overrideWarningsEnabled=false npx cdk deploy v8-Stack --parameters AdminEmail=<MY_EMAIL>
 ```
 
+### Custom Domain (ECS)
+
+To use a custom domain (e.g. `images.scannable.io`) with the ECS architecture's CloudFront distribution, see [docs/CUSTOM-DOMAIN-SETUP.md](docs/CUSTOM-DOMAIN-SETUP.md). A 403 error when accessing the custom domain usually means the Alternate Domain Name and ACM certificate are not yet configured on the distribution.
+
 _Note:_
+
 - **MY_BUCKET**: name of an existing bucket or the list of comma-separated bucket names in your account
 - **PROFILE_NAME**: name of an AWS CLI profile that has appropriate credentials for deploying in your preferred region
 - **MY_EMAIL**: email for the admin user who can configure origins, transformation policies and mappings
@@ -143,5 +150,5 @@ This solution sends operational metrics to AWS (the “Data”) about the use of
 
 # License
 
-Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.   
+Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 SPDX-License-Identifier: Apache-2.0

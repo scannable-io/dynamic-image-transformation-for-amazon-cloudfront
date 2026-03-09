@@ -141,13 +141,18 @@ export class ManagementStack extends Stack {
       deploymentSize: deploymentSize.valueAsString,
     });
 
+    const imageProcessingDomainName = this.node.tryGetContext("imageProcessingDomainName") as string | undefined;
+    const imageProcessingCertificateArn = this.node.tryGetContext("imageProcessingCertificateArn") as string | undefined;
+
     new ImageProcessingStack(this, "ImageProcessing", {
       configTable: dalConstruct.table,
       uuid: metricsConstruct.uuid,
       configTableArn: dalConstruct.table.tableArn,
       deploymentSize: deploymentSize.valueAsString,
       originOverrideHeader: originOverrideHeader.valueAsString,
-      corsOrigin: corsOriginParameter.valueAsString
+      corsOrigin: corsOriginParameter.valueAsString,
+      domainName: imageProcessingDomainName,
+      certificateArn: imageProcessingCertificateArn,
     });
 
     new CfnOutput(this, "WebPortalUrl", {
